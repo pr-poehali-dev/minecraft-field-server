@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,35 @@ import { useToast } from '@/hooks/use-toast';
 const Index = () => {
   const { toast } = useToast();
   const [copiedIP, setCopiedIP] = useState(false);
+  const [serverStatus, setServerStatus] = useState<{
+    online: boolean;
+    players: { online: number; max: number };
+    version?: string;
+    latency?: number;
+  }>({
+    online: false,
+    players: { online: 0, max: 0 }
+  });
+  const [isLoading, setIsLoading] = useState(true);
   const serverIP = 'fildcube.proxycraft.ru';
+
+  useEffect(() => {
+    const fetchServerStatus = async () => {
+      try {
+        const response = await fetch('https://functions.poehali.dev/d9e2618f-2063-4e4e-abc9-48f84efff8df');
+        const data = await response.json();
+        setServerStatus(data);
+      } catch (error) {
+        console.error('Failed to fetch server status:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchServerStatus();
+    const interval = setInterval(fetchServerStatus, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const copyIP = () => {
     navigator.clipboard.writeText(serverIP);
@@ -120,16 +148,36 @@ const Index = () => {
 
           <div className="flex justify-center gap-8 mt-8">
             <div className="text-center">
-              <p className="text-4xl font-bold text-primary text-glow-green">247</p>
-              <p className="text-muted-foreground">Игроков онлайн</p>
+              {isLoading ? (
+                <p className="text-4xl font-bold text-primary text-glow-green animate-pulse">...</p>
+              ) : (
+                <div className="flex items-center justify-center gap-2">
+                  <div className={`w-3 h-3 rounded-full ${serverStatus.online ? 'bg-primary animate-pulse-glow' : 'bg-red-500'}`}></div>
+                  <p className="text-4xl font-bold text-primary text-glow-green">
+                    {serverStatus.players.online}
+                  </p>
+                </div>
+              )}
+              <p className="text-muted-foreground">
+                {serverStatus.online ? `Игроков онлайн (из ${serverStatus.players.max})` : 'Игроков онлайн'}
+              </p>
             </div>
             <div className="text-center">
               <p className="text-4xl font-bold text-secondary text-glow-purple">8500+</p>
               <p className="text-muted-foreground">Зарегистрировано</p>
             </div>
             <div className="text-center">
-              <p className="text-4xl font-bold text-accent text-glow-blue">99.9%</p>
-              <p className="text-muted-foreground">Аптайм</p>
+              {serverStatus.latency && serverStatus.online ? (
+                <>
+                  <p className="text-4xl font-bold text-accent text-glow-blue">{Math.round(serverStatus.latency)}ms</p>
+                  <p className="text-muted-foreground">Пинг</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-4xl font-bold text-accent text-glow-blue">99.9%</p>
+                  <p className="text-muted-foreground">Аптайм</p>
+                </>
+              )}
             </div>
           </div>
         </div>
